@@ -7,6 +7,7 @@ use App\Jobs\ProcessProperty;
 use App\Jobs\ProcessZenu;
 use http\Env\Response;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
@@ -51,11 +52,13 @@ class ContactController extends Controller
         }
         $client = Http::withBasicAuth(env('ZENU_ID', false), env('ZENU_TOKEN',false));
         $response = $client->get($uri);
-        if($response->successful()){
+        if($response->successful()) {
             //var_dump(json_decode($response->body())->pagination->total_pages);
             $page = 0;
             $total_pages = json_decode($response->body())->pagination->total_pages;
-            $total_pages = 1; //for testing
+            if (App::environment('local')) {
+                $total_pages = 1; // TODO: Remove this for live.
+            }
             while($page <= $total_pages) {
                 $arr = json_decode($response->body())->data;
                 foreach ($arr as $contact) {
@@ -101,8 +104,7 @@ class ContactController extends Controller
         if($contact) {
             //Update contact from Zenu API based on ID.
             $zenuContact = $this->getZenuContactbyID($contact->zenu_id);
-//            var_dump($contact->id);
-            if(isset($zenuContact->id)){
+            if($zenuContact->id){
                 $contact = $this->updateZenuContact($zenuContact);
             }
             return response()->json($contact, 201);
