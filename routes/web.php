@@ -18,7 +18,11 @@ $router->get('/', function () use ($router) {
 $router->group(['prefix' => 'api'], function () use ($router) {
     $router->get('contacts',  ['uses' => 'ContactController@showAllContacts']);
 
+    $router->get('updateAll',  ['uses' => 'ContactController@updateAll']);
+
     $router->get('contacts/{phone}', ['uses' => 'ContactController@showOneContact']);
+
+    $router->get('zenucontacts/{page}',  ['uses' => 'ContactController@showZenuContacts']);
 
     $router->post('contacts', ['uses' => 'ContactController@create']);
 
