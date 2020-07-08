@@ -3,12 +3,15 @@
 namespace App\Http\Controllers;
 
 use App\Contact;
+use App\Jobs\CreateContactJob;
+use App\Jobs\ExampleJob;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Queue;
 
 
 class ContactController extends Controller
@@ -61,17 +64,17 @@ class ContactController extends Controller
             $page = 1;
             $total_pages = json_decode($response->body())->pagination->total_pages;
             if (App::environment('local')) {
-                $total_pages = 30; // TODO: Remove this for live.
+                if($total_pages>30) {
+                    $total_pages = 30; // TODO: Remove this for live.
+                }
             }
+            ini_set('max_execution_time', 300);
             while($page <= $total_pages) {
                 $arr = json_decode($response->body())->data;
-                foreach ($arr as $contact) {
-                    $this->createZenuContact($contact);
-                }
+                Queue::push(new CreateContactJob($arr));
                 $uri = env('ZENU_URI', 'https://api.zenu.com.au/api/v1').'/contacts?page[number]='.$page++;
-//                Log::info($uri);
-                $response = Http::withBasicAuth(env('ZENU_ID', false), env('ZENU_TOKEN',false))
-                    ->get($uri);
+                Log::info($uri);
+                $response = Http::withBasicAuth(env('ZENU_ID', false), env('ZENU_TOKEN',false))->get($uri);
             }
             \App\Request::create(['desc' => 'zenu']);
         }
@@ -85,6 +88,7 @@ class ContactController extends Controller
     public function showZenuContacts($page)
     {
         if($page == 0) $page = 1;
+
         $uri = env('ZENU_URI', 'https://api.zenu.com.au/api/v1').'/contacts?page[number]='.$page;
         $response = Http::withBasicAuth(env('ZENU_ID', false), env('ZENU_TOKEN',false))
             ->get($uri);
