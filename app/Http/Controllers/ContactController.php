@@ -3,27 +3,32 @@
 namespace App\Http\Controllers;
 
 use App\Contact;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
-
+use Illuminate\Support\Facades\Log;
 
 
 class ContactController extends Controller
 {
 
-    public function updateZenuContact($zenuContact){
-        $contact = Contact::updateOrCreate([
-            'zenu_id' => $zenuContact->id],[
-            'zenu_id' => $zenuContact->id,
-            'phone' => preg_replace('/\D+/','',$zenuContact->phone->work),
-            'mobile' => preg_replace('/\D+/','',$zenuContact->phone->mobile),
-            'first_name' => $zenuContact->first_name,
-            'last_name' => $zenuContact->last_name,
-            'company' => isset($zenuContact->company->name) ?: 'null',
-        ]);
-        return $contact;
+    public function createZenuContact($zenuContact){
+        if($zenuContact->phone->work || $zenuContact->phone->mobile || $zenuContact->phone->home) {
+            $contact = Contact::updateOrCreate([
+                'zenu_id' => $zenuContact->id], [
+                'zenu_id' => $zenuContact->id,
+                'phone' => preg_replace('/\D+/', '', $zenuContact->phone->work ?? $zenuContact->phone->home),
+                'mobile' => preg_replace('/\D+/', '', $zenuContact->phone->mobile),
+                'first_name' => $zenuContact->first_name,
+                'last_name' => $zenuContact->last_name,
+                'company' => isset($zenuContact->company->name) ?: 'null',
+                'type' => implode($zenuContact->types),
+            ]);
+            return $contact;
+        }
+        return '';
     }
 
     public function getZenuContactbyID($id){
@@ -38,36 +43,35 @@ class ContactController extends Controller
 
     public function updateZenuContacts(){
         //Get the last time this request was made.
-
         $last_request = DB::table('requests')
             ->orderBy('updated_at', 'desc')
             ->get()
             ->first();
         $uri = env('ZENU_URI', 'https://api.zenu.com.au/api/v1') . '/contacts';
         if($last_request) {
-            $timestamp = $last_request->created_at;//->format('c'); //format for ISO 8601 datetime standard
-            //var_dump($timestamp);
+            $carbon_date = Carbon::parse($last_request->created_at)->addHours(10);//->setTimezone('Australia/Brisbane');
+            $timestamp = str_replace(' ','T',$carbon_date);//->format('c'); //format for ISO 8601 datetime standard
+            Log::info($timestamp);
             $uri = env('ZENU_URI', 'https://api.zenu.com.au/api/v1') . '/contacts?filter[last_modified_from]=' .$timestamp; //get all records since last update
         }
         $client = Http::withBasicAuth(env('ZENU_ID', false), env('ZENU_TOKEN',false));
         $response = $client->get($uri);
         if($response->successful()) {
-            //var_dump(json_decode($response->body()));
-            $page = 0;
+//            var_dump(json_decode($response->body()));
+            $page = 1;
             $total_pages = json_decode($response->body())->pagination->total_pages;
             if (App::environment('local')) {
-                $total_pages = 1; // TODO: Remove this for live.
+                $total_pages = 3; // TODO: Remove this for live.
             }
             while($page <= $total_pages) {
                 $arr = json_decode($response->body())->data;
                 foreach ($arr as $contact) {
-                    $this->updateZenuContact($contact);
+                    $this->createZenuContact($contact);
                 }
-//                $client = Http::withBasicAuth(env('ZENU_ID', false), env('ZENU_TOKEN',false));
-                $response = $client->get($uri.'?page['.$page++.']');
-                if(!$response->successful()){
-                    break;
-                }
+                $uri = env('ZENU_URI', 'https://api.zenu.com.au/api/v1').'/contacts?page[number]='.$page++;
+//                Log::info($uri);
+                $response = Http::withBasicAuth(env('ZENU_ID', false), env('ZENU_TOKEN',false))
+                    ->get($uri);
             }
             \App\Request::create(['desc' => 'zenu']);
         }
@@ -80,7 +84,8 @@ class ContactController extends Controller
 
     public function showZenuContacts($page)
     {
-        $uri = env('ZENU_URI', 'https://api.zenu.com.au/api/v1').'/contacts?page['.$page.']';
+        if($page == 0) $page = 1;
+        $uri = env('ZENU_URI', 'https://api.zenu.com.au/api/v1').'/contacts?page[number]='.$page;
         $response = Http::withBasicAuth(env('ZENU_ID', false), env('ZENU_TOKEN',false))
             ->get($uri);
         if($response->successful()){
@@ -104,7 +109,7 @@ class ContactController extends Controller
             //Update contact from Zenu API based on ID.
             $zenuContact = $this->getZenuContactbyID($contact->zenu_id);
             if($zenuContact->id){
-                $contact = $this->updateZenuContact($zenuContact);
+                $contact = $this->createZenuContact($zenuContact);
             }
             return response()->json($contact, 201);
         } else {
@@ -115,7 +120,9 @@ class ContactController extends Controller
                 ->orderBy('updated_at','desc')
                 ->get()
                 ->first();
-            return response()->json($contact, 201);
+            if($contact) {
+                return response()->json($contact, 201);
+            }
         }
         return '';
 
