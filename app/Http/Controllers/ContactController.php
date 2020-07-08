@@ -19,12 +19,12 @@ class ContactController extends Controller
             $contact = Contact::updateOrCreate([
                 'zenu_id' => $zenuContact->id], [
                 'zenu_id' => $zenuContact->id,
-                'phone' => preg_replace('/\D+/', '', $zenuContact->phone->work ?? $zenuContact->phone->home),
+                'phone' => preg_replace('/\D+/', '', $zenuContact->phone->work ?: $zenuContact->phone->home),
                 'mobile' => preg_replace('/\D+/', '', $zenuContact->phone->mobile),
                 'first_name' => $zenuContact->first_name,
                 'last_name' => $zenuContact->last_name,
                 'company' => isset($zenuContact->company->name) ?: 'null',
-                'type' => implode($zenuContact->types),
+                'type' => implode(', ',$zenuContact->types),
             ]);
             return $contact;
         }
@@ -61,7 +61,7 @@ class ContactController extends Controller
             $page = 1;
             $total_pages = json_decode($response->body())->pagination->total_pages;
             if (App::environment('local')) {
-                $total_pages = 3; // TODO: Remove this for live.
+                $total_pages = 30; // TODO: Remove this for live.
             }
             while($page <= $total_pages) {
                 $arr = json_decode($response->body())->data;
