@@ -41,7 +41,8 @@ function getContactById($id){
         } elseif (strpos($contact['type'], 'Tenant') !== false) {
             $contact['type'] = "Tenant";
         } else {
-            $contact['type'] = explode(' ',$contact['type'])[0];
+            $contact['type'] = preg_replace("/[^a-zA-Z]/","",explode(' ',$contact['type'])[0]);
+
         }
     }
     return $contact;
