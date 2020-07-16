@@ -1,41 +1,53 @@
+
 <?php
 
 if (isset($_GET['id'])) {
     $id = $_GET['id'];
-    echo json_encode(getZenuContactbyID($id));
+    echo getContactById($id);
 } elseif (isset($_GET['page'])){
     $page = $_GET['page'];
     echo json_encode(showZenuContacts($page));
 } elseif (isset($_GET['phone'])) {
     $number = $_GET['phone'];
-    $phone = substr($number, 3);
-    $mobile = '0' . substr($number, 2);
-    $contact = queryDatabase("SELECT * FROM contacts 
-                    WHERE phone = '$phone' OR mobile = '$mobile'
+    $phone = substr($number, -8);
+    $mobile = substr($number, -9);
+    $contact = queryDatabase("SELECT id, mobile, phone, first_name, last_name, company, type, email FROM contacts 
+                    WHERE RIGHT(phone, 8) = '$phone' OR RIGHT(mobile, 9) = '$mobile'
                     ORDER BY updated_at DESC
                     LIMIT 1");
+    if (isset($contact['id'])) {
+        $contact = getContactById($contact['id']);
+        echo json_encode(array($contact));
+    } else {
+        updateZenuContacts();
+        $contact = queryDatabase("SELECT id, mobile, phone, first_name, last_name, company, type, email FROM contacts 
+                    WHERE RIGHT(phone, 8) = '$phone' OR RIGHT(mobile, 9) = '$mobile'
+                    ORDER BY updated_at DESC
+                    LIMIT 1");
+        if (isset($contact['id'])) {
+            $contact = getContactById($contact['id']);
+            echo json_encode(array($contact));
+        }
+    }
+}
+
+function getContactById($id){
+    $contact = queryDatabase("SELECT id, zenu_id, mobile, phone, first_name, last_name, company, type, email FROM contacts WHERE id = '$id' LIMIT 1");
     if (isset($contact['id'])) {
         $zenuContact = getZenuContactbyID($contact['zenu_id']);
         if(isset($zenuContact)){
             createZenuContact($zenuContact);
         }
-    } else {
-        updateZenuContacts();
+        $contact = queryDatabase("SELECT id, zenu_id, mobile, phone, first_name, last_name, company, type, email FROM contacts WHERE id = '$id' LIMIT 1");
+        if (strpos($contact['type'], 'Owner') !== false || strpos($contact['type'], 'Landlord') !== false) {
+            $contact['type'] = "Landlord";
+        } elseif (strpos($contact['type'], 'Tenant') !== false) {
+            $contact['type'] = "Tenant";
+        } else {
+            $contact['type'] = explode(' ',$contact['type'])[0];
+        }
     }
-    $contact = queryDatabase("SELECT * FROM contacts 
-                    WHERE phone = '$phone' OR mobile = '$mobile'
-                    ORDER BY updated_at DESC
-                    LIMIT 1");
-
-    if(strpos($contact['type'], 'Owner') !== false || strpos($contact['type'], 'Landlord') !== false ){
-        $contact['type'] = "Landlord";
-    } elseif (strpos($contact['type'],'Tenant') !== false){
-        $contact['type'] = "Tenant";
-    } else {
-        $contact['type'] = '';
-    }
-
-    echo json_encode($contact);
+    return $contact;
 }
 
 function queryDatabase($query){
@@ -89,7 +101,6 @@ function updateZenuContacts(){
 
 function createZenuContact($zenuContact){
     if($zenuContact->phone->work || $zenuContact->phone->mobile || $zenuContact->phone->home) {
-        echo implode($zenuContact->types);
         $id = $zenuContact->id;
         $phone = preg_replace('/\D+/', '', $zenuContact->phone->work ?: $zenuContact->phone->home);
         $mobile = preg_replace('/\D+/', '', $zenuContact->phone->mobile);
@@ -98,13 +109,14 @@ function createZenuContact($zenuContact){
         $company = isset($zenuContact->company) ? $zenuContact->company->name : '';
         $type = implode(', ',$zenuContact->types);
         $timestamp = (new DateTime("now"))->format("Y-m-d H:i:s");
+        $email = $zenuContact->email;
 
         $contacts = queryDatabase("SELECT count(*) FROM contacts WHERE zenu_id = '$id'");
         if($contacts['count(*)'] > 0) {
-            $query = "UPDATE contacts SET updated_at='$timestamp',phone='$phone', mobile='$mobile', first_name='$fname', last_name='$lname', company='$company', type='$type' WHERE zenu_id = '$id'";
+            $query = "UPDATE contacts SET updated_at='$timestamp',phone='$phone', mobile='$mobile', first_name='$fname', last_name='$lname', company='$company', type='$type', email='$email' WHERE zenu_id = '$id'";
         } else {
-            $query = "INSERT INTO contacts (created_at, updated_at, zenu_id, phone, mobile, first_name, last_name, company, type) 
-			VALUES ('$timestamp','$timestamp','$id','$phone', '$mobile', '$fname', '$lname', '$company', '$type')";
+            $query = "INSERT INTO contacts (created_at, updated_at, zenu_id, phone, mobile, first_name, last_name, company, type, email) 
+			VALUES ('$timestamp','$timestamp','$id','$phone', '$mobile', '$fname', '$lname', '$company', '$type', '$email')";
         }
         queryDatabase($query);
     }
