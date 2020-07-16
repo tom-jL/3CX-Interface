@@ -1,10 +1,7 @@
 
 <?php
 
-if (isset($_GET['id'])) {
-    $id = $_GET['id'];
-    echo getContactById($id);
-} elseif (isset($_GET['page'])){
+if (isset($_GET['page'])){
     $page = $_GET['page'];
     echo json_encode(showZenuContacts($page));
 } elseif (isset($_GET['phone'])) {
