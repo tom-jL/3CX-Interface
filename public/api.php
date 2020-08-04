@@ -15,16 +15,6 @@ if (isset($_GET['page'])){
     if (isset($contact['id'])) {
         $contact = getContactById($contact['id']);
         echo json_encode(array($contact));
-    } else {
-        updateZenuContacts();
-        $contact = queryDatabase("SELECT id, mobile, phone, first_name, last_name, company, type, email FROM contacts 
-                    WHERE RIGHT(phone, 8) = '$phone' OR RIGHT(mobile, 9) = '$mobile'
-                    ORDER BY updated_at DESC
-                    LIMIT 1");
-        if (isset($contact['id'])) {
-            $contact = getContactById($contact['id']);
-            echo json_encode(array($contact));
-        }
     }
 }
 
@@ -80,7 +70,7 @@ function updateZenuContacts(){
     if(isset($response)){
         $page = 1;
         $total_pages = $response->pagination->total_pages;
-        ini_set('max_execution_time', 300);
+        //ini_set('max_execution_time', 300);
         while($page <= $total_pages) {
             $zenuContacts = $response->data;
             foreach ($zenuContacts as $contact) {
