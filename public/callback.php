@@ -18,8 +18,9 @@ $client_secret = $config['PROPME_SECRET'];
 $last_request = queryDatabase("SELECT * FROM requests 
                     ORDER BY updated_at DESC
                     LIMIT 1");
-if(isset($last_request)) {
-    $timestamp = DateTime::createFromFormat("Y-m-d H:i:s", $last_request["updated_at"])->format("U");
+if(isset($last_request["updated_at"])) {
+    $timestamp = DateTime::createFromFormat("Y-m-d H:i:s", $last_request["updated_at"]);
+    $timestamp = $timestamp->format("U");
 } else {
     $timestamp = 1;
 }

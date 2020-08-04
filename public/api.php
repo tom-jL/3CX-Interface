@@ -61,7 +61,7 @@ function updateZenuContacts(){
                     LIMIT 1");
     $config = parse_ini_file('../config.ini');
     $url = $config['ZENU_URL'] .'/contacts/'; //'https://api.zenu.com.au/api/v1'
-    if(isset($last_request)){
+    if(isset($last_request["updated_at"])){
         $timestamp = DateTime::createFromFormat ( "Y-m-d H:i:s", $last_request["updated_at"] );
 //        $timestamp->add(new DateInterval('PT10H')); //add 10 hours
         $url = $config['ZENU_URL'] .'/contacts?filter[last_modified_from]='.str_replace(' ','T',$timestamp->format("Y-m-d H:i:s"));
